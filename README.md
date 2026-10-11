@@ -1,6 +1,6 @@
 # glpi-asset-dashboard
 
-**Português** | [English](README.en.md) | [Español (Honduras)](README.es-HN.md)
+**Português** · [English](README.en.md) · [Español (Honduras)](README.es-HN.md)
 
 Painel web amigável para o controle de ativos de TI, construído sobre o [GLPI](https://glpi-project.org/), mais uma GPO que mantém o GLPI Agent instalado e o inventário sempre atualizado.
 

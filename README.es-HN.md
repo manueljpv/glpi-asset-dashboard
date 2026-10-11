@@ -34,6 +34,16 @@ GLPI guarda todo, pero no es la herramienta más práctica para un jefe de depar
 - Crea una tarea programada local que **fuerza el inventario** en el arranque y al iniciar sesión, con un intervalo mínimo de 2 horas.
 - Activa el ícono de la bandeja del agente (vea la [documentación de la GPO](docs/gpo-glpi-agent.md) para saber por qué esto requiere cuidado).
 
+## Capturas de pantalla
+
+> Datos ficticios: los hostnames, nombres y dominios son inventados.
+
+![Vista general con las tarjetas de estado y los indicadores de calidad de datos](docs/img/01-visao-geral.png)
+
+![Tabla de equipos, con estado y mejora recomendada](docs/img/02-tabela.png)
+
+![Filtro por estado: equipos obsoletos de todos los departamentos](docs/img/03-obsoletos.png)
+
 ## Arquitectura a alto nivel
 
 ```

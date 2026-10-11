@@ -34,6 +34,16 @@ GLPI stores everything, but it is not the most practical tool for a department m
 - Creates a local scheduled task that **forces an inventory** at boot and at logon, with a minimum interval of 2 hours.
 - Enables the agent's tray icon (see the [GPO documentation](docs/gpo-glpi-agent.md) for why this takes some care).
 
+## Screenshots
+
+> Fictitious data: hostnames, names and domains are made up.
+
+![Overview with the status cards and the data-quality indicators](docs/img/01-visao-geral.png)
+
+![Equipment table, with status and recommended upgrade](docs/img/02-tabela.png)
+
+![Status filter: obsolete equipment across all departments](docs/img/03-obsoletos.png)
+
 ## High-level architecture
 
 ```
