@@ -34,6 +34,16 @@ O GLPI guarda tudo, mas não é a ferramenta mais prática para um gestor de dep
 - Cria uma tarefa agendada local que **força o inventário** no boot e no logon, com intervalo mínimo de 2 horas.
 - Ativa o ícone de bandeja do agente (veja a [documentação da GPO](docs/gpo-glpi-agent.md) para o porquê de isso exigir cuidado).
 
+## Capturas de tela
+
+> Dados fictícios: hostnames, nomes e domínios são inventados.
+
+![Visão geral com os cards de status e os indicadores de qualidade de dados](docs/img/01-visao-geral.png)
+
+![Tabela de equipamentos, com status e upgrade recomendado](docs/img/02-tabela.png)
+
+![Filtro por status: equipamentos obsoletos de todos os departamentos](docs/img/03-obsoletos.png)
+
 ## Arquitetura em alto nível
 
 ```
