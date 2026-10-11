@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Controle de Ativos - GLPI</title>
+<style>
+    :root {
+        --bg-color: #f8fafc;
+        --card-bg: #ffffff;
+        --text-primary: #0f172a;
+        --text-secondary: #64748b;
+        --border-color: #e2e8f0;
+
+        --status-ok-bg: #dcfce7;   --status-ok-text: #166534;   --status-ok-line: #16a34a;
+        --status-ram-bg: #dbeafe;  --status-ram-text: #1e40af;  --status-ram-line: #2563eb;
+        --status-ssd-bg: #e0e7ff;  --status-ssd-text: #3730a3;  --status-ssd-line: #4338ca;
+        --status-atencao-bg: #fef9c3; --status-atencao-text: #854d0e; --status-atencao-line: #ca8a04;
+        --status-obsoleto-bg: #fee2e2; --status-obsoleto-text: #991b1b; --status-obsoleto-line: #dc2626;
+        --status-servidor-bg: #f1f5f9; --status-servidor-text: #334155; --status-servidor-line: #64748b;
+        --status-periferico-bg: #ede9fe; --status-periferico-text: #5b21b6; --status-periferico-line: #7c3aed;
+        --status-total-line: #334155;
+        --quality-line: #b45309;
+        --quality-bg: #fffbeb;
+        --quality-border: #fde68a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-primary);
+        margin: 0;
+        padding: 24px;
+        line-height: 1.5;
+    }
+
+    .container { max-width: 1480px; margin: 0 auto; }
+
+    header {
+        margin-bottom: 24px;
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        color: #ffffff;
+        padding: 32px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+    }
+
+    header .heading { max-width: 640px; }
+    header .heading h1 { margin: 0 0 10px 0; font-size: 26px; font-weight: 700; }
+    header .heading p { margin: 0; color: #94a3b8; font-size: 14px; }
+    header .heading p + p { margin-top: 4px; }
+
+    header .actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+    header .actions .source-info { text-align: right; font-size: 12.5px; color: #cbd5e1; line-height: 1.5; }
+    header .actions .source-info strong { color: #fff; }
+    header .actions .who { font-size: 12.5px; color: #cbd5e1; }
+    header .actions .who strong { color: #fff; }
+
+    .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background-color: #fff;
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        padding: 9px 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .btn-secondary:hover { background-color: #f1f5f9; }
+
+    .btn-ghost-dark {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background-color: rgba(255,255,255,0.08);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.25);
+        padding: 9px 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .btn-ghost-dark:hover { background-color: rgba(255,255,255,0.16); }
+
+    /* ---------- Estado de carregamento / erro (substitui a antiga área de upload) ---------- */
+    .state-box {
+        background-color: var(--card-bg);
+        border: 2px dashed #cbd5e1;
+        border-radius: 12px;
+        padding: 48px 24px;
+        text-align: center;
+        margin-bottom: 24px;
+    }
+    .state-box.is-error { border-color: #fca5a5; background-color: #fef2f2; }
+    .state-box h2 { margin: 0 0 6px 0; font-size: 17px; font-weight: 600; }
+    .state-box p { margin: 0 0 18px 0; color: var(--text-secondary); font-size: 13px; }
+    .state-box .erro-msg { color: #991b1b; font-weight: 600; font-size: 13.5px; margin-bottom: 16px; }
+
+    /* ---------- Dashboard (hidden until data loaded) ---------- */
+    #dashboard { display: none; }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-top: 4px solid var(--status-total-line);
+        border-radius: 10px;
+        padding: 16px 18px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        cursor: pointer;
+        transition: transform .1s ease, box-shadow .1s ease;
+        user-select: none;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+    .card.active { outline: 2px solid #0f172a; outline-offset: -2px; }
+
+    .card-title {
+        font-size: 11.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+    }
+    .card-value { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+    .card-subtext { font-size: 11.5px; color: var(--text-secondary); }
+
+    .card-ok { border-top-color: var(--status-ok-line); }
+    .card-ram { border-top-color: var(--status-ram-line); }
+    .card-ssd { border-top-color: var(--status-ssd-line); }
+    .card-atencao { border-top-color: var(--status-atencao-line); }
+    .card-obsoleto { border-top-color: var(--status-obsoleto-line); }
+    .card-servidor { border-top-color: var(--status-servidor-line); }
+    .card-periferico { border-top-color: var(--status-periferico-line); }
+    .card-quality { border-top-color: var(--quality-line); }
+
+    /* ---------- Controls ---------- */
+    .controls {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .search-input, .filter-select {
+        padding: 10px 14px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 14px;
+        background-color: #fff;
+        outline: none;
+        color: var(--text-primary);
+    }
+    .search-input:focus, .filter-select:focus { border-color: #94a3b8; }
+
+    .search-input { flex: 1; min-width: 220px; }
+    .filter-select { min-width: 165px; }
+    .filter-select:disabled { background-color: #f1f5f9; color: var(--text-secondary); cursor: not-allowed; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field.field-grow { flex: 1; }
+    .field-label {
+        font-size: 11px; font-weight: 700; color: var(--text-secondary);
+        text-transform: uppercase; letter-spacing: 0.4px;
+    }
+
+    .checkbox-label {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 13px; color: var(--text-secondary); cursor: pointer;
+        white-space: nowrap;
+        align-self: flex-end;
+        padding-bottom: 10px;
+    }
+    .checkbox-label input { cursor: pointer; }
+
+    .total-banner {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-top: 4px solid var(--status-total-line);
+        border-radius: 10px;
+        padding: 20px 24px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    .total-banner .total-value { font-size: 34px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+    .total-banner .total-label { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+
+    .controls-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+    .results-count { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
+    .results-count strong { color: var(--text-primary); }
+
+    .clear-filters {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background-color: #fff;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-color);
+        padding: 9px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        margin-left: auto;
+    }
+    .clear-filters:hover { background-color: #f1f5f9; color: var(--text-primary); border-color: #cbd5e1; }
+
+    /* ---------- Table ---------- */
+    .table-container {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        overflow-x: auto;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px; }
+
+    th {
+        background-color: #f1f5f9;
+        color: #334155;
+        font-weight: 700;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-color);
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        cursor: pointer;
+        user-select: none;
+    }
+    th:hover { background-color: #e2e8f0; }
+    th.sorted-asc::after { content: " \25B2"; font-size: 10px; }
+    th.sorted-desc::after { content: " \25BC"; font-size: 10px; }
+    th.no-sort { cursor: default; }
+    th.no-sort:hover { background-color: #f1f5f9; }
+
+    td { padding: 12px 16px; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: top; }
+    tr:hover { background-color: #f8fafc; }
+    tr:last-child td { border-bottom: none; }
+
+    .cell-secondary { color: var(--text-secondary); font-size: 12.5px; }
+    .cell-obs {
+        max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+        white-space: nowrap; color: var(--text-secondary); font-size: 12.5px;
+        cursor: help;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        font-size: 11.5px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .badge-ok { background-color: var(--status-ok-bg); color: var(--status-ok-text); }
+    .badge-atencao { background-color: var(--status-atencao-bg); color: var(--status-atencao-text); }
+    .badge-obsoleto { background-color: var(--status-obsoleto-bg); color: var(--status-obsoleto-text); }
+    .badge-servidor { background-color: var(--status-servidor-bg); color: var(--status-servidor-text); }
+    .badge-periferico { background-color: var(--status-periferico-bg); color: var(--status-periferico-text); }
+
+    .upgrade-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+    .tag-ram { background-color: var(--status-ram-bg); color: var(--status-ram-text); }
+    .tag-ssd { background-color: var(--status-ssd-bg); color: var(--status-ssd-text); }
+    .tag-none { color: var(--text-secondary); font-size: 12.5px; }
+
+    .pill-inativo {
+        display: inline-block; font-size: 11px; font-weight: 700; color: #991b1b;
+        background: #fee2e2; padding: 2px 8px; border-radius: 9999px; margin-left: 6px;
+    }
+    .pill-dup {
+        display: inline-block; font-size: 11px; font-weight: 700; color: #854d0e;
+        background: #fef9c3; padding: 2px 8px; border-radius: 9999px; margin-left: 6px;
+    }
+
+    tr.subrow td { background-color: #f8fafc; }
+    .subrow-marker { color: var(--text-secondary); margin-right: 3px; }
+
+    .empty-state { text-align: center; padding: 48px 24px; color: var(--text-secondary); }
+
+    footer.note { margin-top: 18px; font-size: 12px; color: var(--text-secondary); text-align: center; }
+
+    /* ---------- Cards de qualidade de dados (exclusivos da TI) ----------
+       Reaproveitam a estrutura .card genérica (título/valor/subtexto),
+       só com a paleta âmbar para se distinguir visualmente dos cards de
+       status, mesmo fazendo parte do mesmo grid e do mesmo clique. */
+    .card-quality { background-color: var(--quality-bg); border-color: var(--quality-border); }
+    .card-quality .card-title, .card-quality .card-subtext { color: #92400e; }
+    .card-quality .card-value { color: #78350f; }
+    .card-quality.active { outline-color: #b45309; }
+
+    .quality-note {
+        font-size: 12.5px; color: #92400e; background-color: var(--quality-bg);
+        border: 1px solid var(--quality-border); border-radius: 8px;
+        padding: 10px 14px; margin: -12px 0 20px 0;
+    }
+
+    /* Coluna "Alertas de dados (TI)" na tabela principal: escondida por
+       completo (cabeçalho e células) fora da visão da TI. */
+    #tableContainer.hide-quality-col .col-quality { display: none; }
+
+    .tag-quality { background-color: var(--quality-bg); color: #92400e; border: 1px solid var(--quality-border); }
+</style>
+</head>
+<body>
+<div class="container">
+
+    <header>
+        <div class="heading">
+            <h1>Painel de Controle de Ativos</h1>
+            <p>Consulta do parque de equipamentos da Empresa Exemplo (notebooks, desktops, servidores, monitores e celulares)</p>
+            <p>Classificação automática para a necessidade ou não de manutenção/upgrade dos equipamentos. (sugerido pelo Departamento de TI)</p>
+            <p>Apoio no planejamento orçamentário de cada setor.</p>
+        </div>
+        <div class="actions">
+            <div class="source-info" id="sourceInfo" style="display:none;"></div>
+            <button type="button" class="btn-ghost-dark" id="reloadBtn" style="display:none;">
+                &#8635; Atualizar dados
+            </button>
+        </div>
+    </header>
+
+    <div class="state-box" id="stateBox">
+        <h2 id="stateTitle">Carregando dados do GLPI...</h2>
+        <p id="stateSubtitle">Isso pode levar alguns segundos na primeira consulta.</p>
+        <div class="erro-msg" id="stateError" style="display:none;"></div>
+        <button type="button" class="btn-secondary" id="retryBtn" style="display:none;">Tentar novamente</button>
+    </div>
+
+    <div id="dashboard">
+
+        <div class="total-banner" id="totalBanner">
+            <div class="total-value" id="totalOnlyValue">0</div>
+            <div class="total-label">ativos no recorte atual<br>selecione um departamento abaixo para ver o detalhamento por status</div>
+        </div>
+
+        <div class="summary-cards" id="summaryCards" style="display:none;">
+            <div class="card card-ok" data-status="OK">
+                <div class="card-title">Status OK</div>
+                <div class="card-value" id="countOK">0</div>
+                <div class="card-subtext">Sem necessidade de troca</div>
+            </div>
+            <div class="card card-atencao" data-status="ATENCAO">
+                <div class="card-title">Atenção</div>
+                <div class="card-value" id="countAtencao">0</div>
+                <div class="card-subtext">Vai precisar de troca em breve</div>
+            </div>
+            <div class="card card-obsoleto" data-status="OBSOLETO">
+                <div class="card-title">Obsoleto</div>
+                <div class="card-value" id="countObsoleto">0</div>
+                <div class="card-subtext">Recomenda-se substituição</div>
+            </div>
+            <div class="card card-servidor" data-status="SERVIDOR" id="cardServidor">
+                <div class="card-title">Servidores / VMs</div>
+                <div class="card-value" id="countServidor">0</div>
+                <div class="card-subtext">Fora da classificação de troca</div>
+            </div>
+            <div class="card card-periferico" data-status="PERIFERICO">
+                <div class="card-title">Periféricos</div>
+                <div class="card-value" id="countPeriferico">0</div>
+                <div class="card-subtext">Monitores e celulares — sem classificação de hardware</div>
+            </div>
+            <div class="card card-ram" data-upgrade="RAM">
+                <div class="card-title">Upgrade de RAM</div>
+                <div class="card-value" id="countUpgradeRAM">0</div>
+                <div class="card-subtext">CPU boa, RAM &lt; 16 GB</div>
+            </div>
+            <div class="card card-ssd" data-upgrade="SSD">
+                <div class="card-title">Upgrade de SSD</div>
+                <div class="card-value" id="countUpgradeSSD">0</div>
+                <div class="card-subtext">Na lista de expansão de SSD</div>
+            </div>
+            <!-- Cards de qualidade de dados: exclusivos da TI, ficam ocultos
+                 (display:none) para qualquer outro departamento. Fazem parte
+                 do MESMO grid e do MESMO sistema de clique dos cards de
+                 status acima — clicar em qualquer um filtra a mesma tabela
+                 logo abaixo, sem precisar rolar a tela para uma área separada. -->
+            <div class="card card-quality" data-status="QUAL_DUP" id="cardQualDup" style="display:none;">
+                <div class="card-title">Hostnames duplicados</div>
+                <div class="card-value" id="qCountDup">0</div>
+                <div class="card-subtext">Mesmo nome cadastrado 2x+ no GLPI</div>
+            </div>
+            <div class="card card-quality" data-status="QUAL_GRUPO" id="cardQualGrupo" style="display:none;">
+                <div class="card-title">Grupo/Setor vazio</div>
+                <div class="card-value" id="qCountGrupo">0</div>
+                <div class="card-subtext">Campo "Grupo" não preenchido</div>
+            </div>
+            <div class="card card-quality" data-status="QUAL_TIPO" id="cardQualTipo" style="display:none;">
+                <div class="card-title">Tipo incomum / a revisar</div>
+                <div class="card-value" id="qCountTipo">0</div>
+                <div class="card-subtext">Tipo cadastrado fora do padrão</div>
+            </div>
+            <div class="card card-quality" data-status="QUAL_RESP" id="cardQualResp" style="display:none;">
+                <div class="card-title">Sem responsável</div>
+                <div class="card-value" id="qCountResp">0</div>
+                <div class="card-subtext">Campo "Usuário" vazio</div>
+            </div>
+        </div>
+        <p class="quality-note" id="qualityNote" style="display:none;">&#9888;&#65039; Os 4 cards acima em âmbar são exclusivos da TI e sempre mostram a <strong>empresa inteira</strong> (não só o departamento selecionado), já que é a TI quem corrige esses casos direto no GLPI.</p>
+
+        <div class="controls">
+            <div class="controls-row controls-row-search">
+                <div class="field field-grow">
+                    <label class="field-label" for="searchInput">Busca livre</label>
+                    <input type="text" id="searchInput" class="search-input" placeholder="Buscar por nome, setor, modelo, processador, responsável...">
+                </div>
+            </div>
+            <div class="controls-row controls-row-filters">
+                <div class="field">
+                    <label class="field-label" for="deptFilter">Departamento</label>
+                    <select id="deptFilter" class="filter-select">
+                        <option value="">Todos os Departamentos</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field-label" for="typeFilter">Tipo de equipamento</label>
+                    <select id="typeFilter" class="filter-select">
+                        <option value="">Todos os Tipos</option>
+                        <option value="Notebook">Notebook</option>
+                        <option value="Desktop">Desktop</option>
+                        <option value="Monitor">Monitor</option>
+                        <option value="Celular">Celular</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field-label" for="statusFilter">Status</label>
+                    <select id="statusFilter" class="filter-select">
+                        <option value="">Todos os Status</option>
+                        <option value="OK">STATUS OK</option>
+                        <option value="ATENCAO">ATENÇÃO</option>
+                        <option value="OBSOLETO">OBSOLETO</option>
+                        <!-- Opções de qualidade de dados (QUAL_*) são adicionadas
+                             aqui dinamicamente via JS, só quando Departamento = TI.
+                             "Periférico" não tem opção aqui — segue o mesmo padrão
+                             de "Servidor/VM", só acessível pelo card acima. -->
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field-label" for="upgradeFilter">Necessita upgrade</label>
+                    <select id="upgradeFilter" class="filter-select">
+                        <option value="">Todos</option>
+                        <option value="RAM">RAM</option>
+                        <option value="SSD">SSD</option>
+                        <option value="AMBOS">RAM e SSD</option>
+                    </select>
+                </div>
+                <label class="checkbox-label"><input type="checkbox" id="showInactive"> Mostrar inativos/descartados</label>
+                <button type="button" class="clear-filters" id="clearFilters">&#10005; Limpar filtros</button>
+            </div>
+        </div>
+
+        <div class="results-count" id="resultsCount"></div>
+
+        <div class="table-container" id="tableContainer">
+            <table id="hardwareTable">
+                <thead>
+                    <tr>
+                        <th data-sort="departamento">Departamento</th>
+                        <th data-sort="responsavel">Responsável</th>
+                        <th data-sort="tipo">Tipo</th>
+                        <th data-sort="equipamento">Equipamento</th>
+                        <th data-sort="nome">Nome</th>
+                        <th data-sort="processador">Processador</th>
+                        <th data-sort="memoria">RAM</th>
+                        <th data-sort="status">Status</th>
+                        <th class="no-sort">Upgrade recomendado</th>
+                        <th class="no-sort col-quality">Alertas de dados (TI)</th>
+                        <th class="no-sort">Observações</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">Nenhum dispositivo encontrado para os filtros aplicados.</div>
+        </div>
+
+        <footer class="note">
+            Classificação de status gerada automaticamente a partir da geração/linha do processador (RAM e SSD não entram no status — aparecem como alerta de "Upgrade recomendado" separado). Servidores e VMs não entram na classificação de troca. Fonte dos dados: API do GLPI — a correção de qualquer inconsistência deve ser feita diretamente no GLPI.
+        </footer>
+    </div>
+
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    /* =========================================================
+       1. CONFIGURAÇÃO DE CLASSIFICAÇÃO
+       (idêntica à v5 — nenhuma regra de negócio mudou nesta etapa,
+       só a origem dos dados, que agora vem de api_ativos.php em vez
+       de um arquivo CSV.)
+       ========================================================= */
+
+    var API_ENDPOINT = "api_ativos.php";
+
+    // Hostnames (campo "Nome" no GLPI) das máquinas marcadas para expansão
+    // de SSD. Lista manual: substitua pelos nomes do seu ambiente.
+    var SSD_EXPANSION_LIST = [
+        "WS-EX01", "WS-EX02", "WS-EX03", "WS-EX04", "WS-EX05", "WS-EX06"
+    ];
+
+    var RAM_THRESHOLD_GB = 15.5;
+
+    var SERVER_TYPES = ["QEMU", "VM", "VIRTUAL MACHINE", "SERVIDOR", "SERVER"];
+
+    var KNOWN_ENDPOINT_TYPES = ["NOTEBOOK", "DESKTOP", "LAPTOP", "CONVERTIBLE"];
+
+    var STATUS_META = {
+        OK:         { label: "STATUS OK",     badge: "badge-ok" },
+        ATENCAO:    { label: "ATENÇÃO",       badge: "badge-atencao" },
+        OBSOLETO:   { label: "OBSOLETO",      badge: "badge-obsoleto" },
+        SERVIDOR:   { label: "SERVIDOR / VM", badge: "badge-servidor" },
+        PERIFERICO: { label: "PERIFÉRICO",    badge: "badge-periferico" }
+    };
+
+    var QUALITY_META = {
+        duplicado:      { tag: "Duplicado" },
+        grupoVazio:     { tag: "Grupo vazio" },
+        tipoIncomum:    { tag: "Tipo incomum" },
+        semResponsavel: { tag: "Sem responsável" }
+    };
+
+    function qualityDetailText(device, key) {
+        if (key === "duplicado") return "Existem " + device._dupCount + " ativos cadastrados com este mesmo nome no GLPI.";
+        if (key === "grupoVazio") return "Campo \"Grupo\" não preenchido no GLPI.";
+        if (key === "tipoIncomum") return "Tipo cadastrado como \"" + (device.tipo || "—") + "\" — confira se está correto.";
+        if (key === "semResponsavel") return "Campo \"Usuário\" (responsável) vazio no GLPI.";
+        return "";
+    }
+
+    function extractIntelGeneration(cpuUpper) {
+        var m = cpuUpper.match(/(\d{1,2})\s*TH\s*GEN/);
+        if (m) return parseInt(m[1], 10);
+
+        m = cpuUpper.match(/I[3579]\s*-?\s*(\d{4,5})/);
+        if (m) {
+            var num = m[1];
+            if (num.length === 5) return parseInt(num.substring(0, 2), 10);
+            if (num.length === 4 && num.substring(0, 2) === "10") return 10;
+            return parseInt(num.substring(0, 1), 10);
+        }
+        return null;
+    }
+
+    function classifyRyzen(cpuUpper) {
+        var m = cpuUpper.match(/RYZEN\s*[3579]\s*(\d{3,4})/);
+        if (!m) return "ATENCAO";
+        var series = parseInt(m[1].substring(0, 1), 10);
+        if (series >= 5) return "OK";
+        if (series >= 2) return "ATENCAO";
+        return "OBSOLETO";
+    }
+
+    function classifyStatus(device) {
+        if (device.category === "server") return "SERVIDOR";
+        if (device.category === "peripheral") return "PERIFERICO";
+
+        var s = (device.processador || "").toUpperCase();
+        if (!s.trim()) return "ATENCAO";
+
+        if (s.indexOf("RYZEN") !== -1) return classifyRyzen(s);
+        if (s.indexOf("PENTIUM") !== -1 || s.indexOf("CELERON") !== -1) return "OBSOLETO";
+
+        var gen = extractIntelGeneration(s);
+        if (gen === null) return "ATENCAO";
+
+        if (gen >= 11) return "OK";
+        if (gen >= 8) return "ATENCAO";
+        return "OBSOLETO";
+    }
+
+    function parseRamGB(memRaw) {
+        if (!memRaw) return null;
+        var m = String(memRaw).replace(",", ".").match(/[\d.]+/);
+        return m ? parseFloat(m[0]) : null;
+    }
+
+    function computeUpgrade(device) {
+        var result = { ram: false, ssd: false };
+        if (device.status !== "OK") return result;
+
+        var ram = parseRamGB(device.memoria);
+        if (ram !== null && ram < RAM_THRESHOLD_GB) result.ram = true;
+
+        var nome = (device.nome || "").trim();
+        if (SSD_EXPANSION_LIST.indexOf(nome) !== -1) result.ssd = true;
+
+        return result;
+    }
+
+    function upgradeLabel(upgrade) {
+        if (upgrade.ram && upgrade.ssd) return "AMBOS";
+        if (upgrade.ram) return "RAM";
+        if (upgrade.ssd) return "SSD";
+        return "NENHUM";
+    }
+
+    /* =========================================================
+       2. MAPEAMENTO REGISTRO (JSON da API) -> MODELO INTERNO
+       (mesmas colunas que o glpi.csv usava, agora entregues pelo
+       api_ativos.php — mapRecordToDevice não mudou.)
+       ========================================================= */
+
+    /* Normaliza o campo "Responsável" vindo do GLPI (ex.: "maria.silva@EMPRESA",
+       "ti@WS-RESERVA10", "TIEMPRESA", "Joao"):
+       - remove tudo a partir do "@" (inclusive);
+       - se sobrarem exatamente 2 nomes separados por ponto, capitaliza e junta
+         com espaço ("maria.silva" -> "Maria Silva");
+       - se sobrar só 1 valor sem ponto, mantém como está ("Joao" -> "Joao");
+       - caso especial: "ti" ou "tiempresa" (em qualquer variação de caixa) viram
+         "TI-EMPRESA" em vez de serem capitalizados normalmente. */
+    function capitalizeToken(t) {
+        if (!t) return t;
+        return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+    }
+
+    function normalizeResponsavelValue(raw) {
+        var v = (raw || "").trim();
+        if (!v) return "";
+        var atIdx = v.indexOf("@");
+        if (atIdx !== -1) v = v.substring(0, atIdx).trim();
+        if (!v) return "";
+
+        var lower = v.toLowerCase();
+        if (lower === "ti" || lower === "tiempresa") return "TI-EMPRESA";
+
+        var partes = v.split(".").filter(Boolean);
+        if (partes.length === 2) {
+            return capitalizeToken(partes[0]) + " " + capitalizeToken(partes[1]);
+        }
+        return v;
+    }
+
+    function splitDepartamento(grupoRaw) {
+        var g = (grupoRaw || "").trim();
+        if (!g) return { departamento: "Não informado", subgrupo: "" };
+        var parts = g.split(">").map(function (p) { return p.trim(); }).filter(Boolean);
+        if (parts.length <= 1) return { departamento: "Não informado", subgrupo: "" };
+        return { departamento: parts[1], subgrupo: parts.slice(2).join(" > ") };
+    }
+
+    function mapRecordToDevice(rec) {
+        var tipoRaw = rec["Tipo"] || "";
+        var itemType = rec["ItemType"] || "Computer";
+        var isPeripheral = itemType === "Monitor" || itemType === "Phone";
+        var isServer = !isPeripheral && SERVER_TYPES.indexOf(tipoRaw.toUpperCase()) !== -1;
+        var dep = splitDepartamento(rec["Grupo"]);
+        var altUser = (rec["Nome alternativo do usuário"] || "").trim();
+        var userField = (rec["Usuário"] || "").trim();
+        var responsavel = normalizeResponsavelValue(altUser || userField);
+
+        var device = {
+            nome: rec["Nome"] || "",
+            entidade: rec["Entidade"] || "",
+            statusGLPI: rec["Status"] || "",
+            fabricante: rec["Fabricante"] || "",
+            tipo: tipoRaw,
+            modelo: rec["Modelo"] || "",
+            grupoRaw: (rec["Grupo"] || "").trim(),
+            departamento: dep.departamento,
+            subgrupo: dep.subgrupo,
+            responsavel: responsavel || "—",
+            comentarios: rec["Comentários"] || "",
+            so: rec["Sistema operacional - Nome"] || "",
+            processador: rec["Componentes - Processador"] || "",
+            memoria: rec["Componentes - Memória"] || "",
+            ultimaAtualizacao: rec["Última atualização"] || "",
+            itemType: itemType,
+            category: isServer ? "server" : (isPeripheral ? "peripheral" : "endpoint")
+        };
+        device.status = classifyStatus(device);
+        device.upgrade = computeUpgrade(device);
+        device.upgradeLabel = upgradeLabel(device.upgrade);
+        return device;
+    }
+
+    function computeQualityFlags(devices) {
+        var nameCounts = {};
+        devices.forEach(function (d) {
+            var key = (d.nome || "").trim().toLowerCase();
+            if (!key) return;
+            nameCounts[key] = (nameCounts[key] || 0) + 1;
+        });
+
+        devices.forEach(function (d) {
+            var key = (d.nome || "").trim().toLowerCase();
+            var dupCount = key ? (nameCounts[key] || 0) : 0;
+
+            d.issues = {
+                duplicado: dupCount > 1,
+                grupoVazio: d.departamento === "Não informado",
+                tipoIncomum: d.category === "endpoint" && KNOWN_ENDPOINT_TYPES.indexOf((d.tipo || "").toUpperCase()) === -1,
+                semResponsavel: d.responsavel === "—"
+            };
+            d._dupCount = dupCount;
+        });
+    }
+
+    /* =========================================================
+       3. ESTADO E RENDERIZAÇÃO
+       ========================================================= */
+
+    var allDevices = [];
+    var activeStatusFilter = "";
+    var activeUpgradeCardFilter = "";
+    var geralSort = { key: null, dir: 1 };
+    var sessaoIsTI = false;
+    var sessaoDepartamento = "";
+
+    var els = {
+        stateBox: document.getElementById("stateBox"),
+        stateTitle: document.getElementById("stateTitle"),
+        stateSubtitle: document.getElementById("stateSubtitle"),
+        stateError: document.getElementById("stateError"),
+        retryBtn: document.getElementById("retryBtn"),
+        dashboard: document.getElementById("dashboard"),
+        reloadBtn: document.getElementById("reloadBtn"),
+        sourceInfo: document.getElementById("sourceInfo"),
+        tableBody: document.getElementById("tableBody"),
+        emptyState: document.getElementById("emptyState"),
+        searchInput: document.getElementById("searchInput"),
+        deptFilter: document.getElementById("deptFilter"),
+        typeFilter: document.getElementById("typeFilter"),
+        statusFilter: document.getElementById("statusFilter"),
+        upgradeFilter: document.getElementById("upgradeFilter"),
+        showInactive: document.getElementById("showInactive"),
+        resultsCount: document.getElementById("resultsCount"),
+        clearFilters: document.getElementById("clearFilters"),
+        summaryCards: document.getElementById("summaryCards"),
+        hardwareTable: document.getElementById("hardwareTable"),
+        tableContainer: document.getElementById("tableContainer"),
+        qualityNote: document.getElementById("qualityNote")
+    };
+
+    var STATUS_TO_QUALITY = {
+        QUAL_DUP: "duplicado",
+        QUAL_GRUPO: "grupoVazio",
+        QUAL_TIPO: "tipoIncomum",
+        QUAL_RESP: "semResponsavel"
+    };
+    var QUALITY_OPTION_LABELS = {
+        QUAL_DUP: "Qualidade (TI): Hostnames duplicados",
+        QUAL_GRUPO: "Qualidade (TI): Grupo/Setor vazio",
+        QUAL_TIPO: "Qualidade (TI): Tipo incomum",
+        QUAL_RESP: "Qualidade (TI): Sem responsável"
+    };
+
+    function escapeHTML(str) {
+        return String(str == null ? "" : str)
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function inactiveFilteredDevices() {
+        if (els.showInactive.checked) return allDevices;
+        // Periféricos (Monitor/Celular) ficam sempre visíveis por padrão,
+        // independente do campo Status do GLPI (hoje vazio para eles) — essa
+        // regra de esconder por Status continua valendo só para Computer.
+        return allDevices.filter(function (d) {
+            if (d.category === "peripheral") return true;
+            return (d.statusGLPI || "").toLowerCase() === "ativo";
+        });
+    }
+
+    function scopedDevices() {
+        var term = els.searchInput.value.trim().toLowerCase();
+        var dept = els.deptFilter.value;
+        var type = els.typeFilter.value;
+
+        return inactiveFilteredDevices().filter(function (d) {
+            if (d.category === "server" && dept !== "TI") return false;
+            if (dept && d.departamento !== dept) return false;
+            if (type && deviceTypeCategory(d) !== type) return false;
+            if (term) {
+                var haystack = [
+                    d.nome, d.departamento, d.subgrupo, d.fabricante, d.modelo, d.tipo,
+                    d.responsavel, d.processador, d.memoria, d.statusGLPI, d.comentarios,
+                    STATUS_META[d.status] ? STATUS_META[d.status].label : ""
+                ].join(" ").toLowerCase();
+                if (haystack.indexOf(term) === -1) return false;
+            }
+            return true;
+        });
+    }
+
+    function nonDeptScopedDevices() {
+        var term = els.searchInput.value.trim().toLowerCase();
+        var type = els.typeFilter.value;
+
+        return inactiveFilteredDevices().filter(function (d) {
+            if (type && deviceTypeCategory(d) !== type) return false;
+            if (term) {
+                var haystack = [
+                    d.nome, d.departamento, d.subgrupo, d.fabricante, d.modelo, d.tipo,
+                    d.responsavel, d.processador, d.memoria, d.statusGLPI, d.comentarios
+                ].join(" ").toLowerCase();
+                if (haystack.indexOf(term) === -1) return false;
+            }
+            return true;
+        });
+    }
+
+    function updateTotalBanner(scoped) {
+        document.getElementById("totalOnlyValue").textContent = scoped.length;
+    }
+
+    function updateSummaryCards(scoped) {
+        var counts = { OK: 0, ATENCAO: 0, OBSOLETO: 0, SERVIDOR: 0, PERIFERICO: 0 };
+        var upgradeCounts = { RAM: 0, SSD: 0 };
+        scoped.forEach(function (d) {
+            counts[d.status]++;
+            if (d.upgrade.ram) upgradeCounts.RAM++;
+            if (d.upgrade.ssd) upgradeCounts.SSD++;
+        });
+
+        document.getElementById("countOK").textContent = counts.OK;
+        document.getElementById("countAtencao").textContent = counts.ATENCAO;
+        document.getElementById("countObsoleto").textContent = counts.OBSOLETO;
+        document.getElementById("countServidor").textContent = counts.SERVIDOR;
+        document.getElementById("countPeriferico").textContent = counts.PERIFERICO;
+        document.getElementById("countUpgradeRAM").textContent = upgradeCounts.RAM;
+        document.getElementById("countUpgradeSSD").textContent = upgradeCounts.SSD;
+    }
+
+    function updateQualityCardCounts() {
+        var base = nonDeptScopedDevices();
+        var counts = { duplicado: 0, grupoVazio: 0, tipoIncomum: 0, semResponsavel: 0 };
+        base.forEach(function (d) {
+            if (!d.issues) return;
+            Object.keys(counts).forEach(function (k) { if (d.issues[k]) counts[k]++; });
+        });
+        document.getElementById("qCountDup").textContent = counts.duplicado;
+        document.getElementById("qCountGrupo").textContent = counts.grupoVazio;
+        document.getElementById("qCountTipo").textContent = counts.tipoIncomum;
+        document.getElementById("qCountResp").textContent = counts.semResponsavel;
+    }
+
+    function updateCardsVisibility() {
+        var deptSelected = els.deptFilter.value !== "";
+        var isTI = els.deptFilter.value === "TI";
+        els.summaryCards.style.display = deptSelected ? "grid" : "none";
+
+        var cardServidor = document.getElementById("cardServidor");
+        if (cardServidor) cardServidor.style.display = isTI ? "" : "none";
+
+        ["cardQualDup", "cardQualGrupo", "cardQualTipo", "cardQualResp"].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = isTI ? "" : "none";
+        });
+        if (els.qualityNote) els.qualityNote.style.display = isTI ? "block" : "none";
+        if (els.tableContainer) els.tableContainer.classList.toggle("hide-quality-col", !isTI);
+
+        updateStatusDropdownOptions(isTI);
+    }
+
+    function updateStatusDropdownOptions(isTI) {
+        var select = els.statusFilter;
+        var qualityKeys = Object.keys(STATUS_TO_QUALITY);
+        var hasQualityOptions = !!select.querySelector('option[value="QUAL_DUP"]');
+
+        if (isTI && !hasQualityOptions) {
+            qualityKeys.forEach(function (key) {
+                var opt = document.createElement("option");
+                opt.value = key;
+                opt.textContent = QUALITY_OPTION_LABELS[key];
+                select.appendChild(opt);
+            });
+        } else if (!isTI && hasQualityOptions) {
+            qualityKeys.forEach(function (key) {
+                var opt = select.querySelector('option[value="' + key + '"]');
+                if (opt) opt.remove();
+            });
+            if (qualityKeys.indexOf(select.value) !== -1) select.value = "";
+            if (qualityKeys.indexOf(activeStatusFilter) !== -1) activeStatusFilter = "";
+        }
+    }
+
+    function tipoFilterCategory(tipoRaw) {
+        var t = (tipoRaw || "").toUpperCase();
+        if (["NOTEBOOK", "CONVERTIBLE", "LAPTOP"].indexOf(t) !== -1) return "Notebook";
+        if (t === "DESKTOP") return "Desktop";
+        if (t === "MONITOR") return "Monitor";
+        if (["CELULAR", "SMARTPHONE", "TELEFONE", "PHONE"].indexOf(t) !== -1) return "Celular";
+        return null;
+    }
+
+    /* Para Monitor/Phone usa o "ItemType" (confiável, vem do backend) em vez
+       do campo "Tipo" do GLPI, que muitas vezes está vazio nesses itens —
+       sem isso, o filtro "Monitor"/"Celular" não encontraria nada quando o
+       campo "Tipo" não estiver preenchido no GLPI. Para Computer, continua
+       usando o texto do campo "Tipo" normalmente (Notebook/Desktop/etc.). */
+    function deviceTypeCategory(d) {
+        if (d.itemType === "Monitor") return "Monitor";
+        if (d.itemType === "Phone") return "Celular";
+        return tipoFilterCategory(d.tipo);
+    }
+
+    function populateFilterOptions(devices) {
+        var currentDept = els.deptFilter.value;
+
+        var depts = Array.from(new Set(devices.map(function (d) { return d.departamento; }))).sort(function (a, b) {
+            return a.localeCompare(b, "pt-BR");
+        });
+        els.deptFilter.innerHTML = '<option value="">Todos os Departamentos</option>';
+        depts.forEach(function (g) {
+            var opt = document.createElement("option");
+            opt.value = g; opt.textContent = g;
+            els.deptFilter.appendChild(opt);
+        });
+        if (depts.indexOf(currentDept) !== -1) els.deptFilter.value = currentDept;
+
+        // Quem não é TI só recebeu do servidor os ativos do próprio
+        // departamento — trava o seletor no próprio departamento em vez
+        // de deixar "Todos os Departamentos" (que aqui já é a mesma coisa,
+        // mas confundiria o gestor achando que pode ver outros setores).
+        if (!sessaoIsTI) {
+            if (depts.length > 0) els.deptFilter.value = depts[0];
+            els.deptFilter.disabled = true;
+        } else {
+            els.deptFilter.disabled = false;
+        }
+    }
+
+    function getFilteredDevices() {
+        var status = els.statusFilter.value || activeStatusFilter;
+        var upgradeSel = els.upgradeFilter.value || (activeUpgradeCardFilter ? activeUpgradeCardFilter : "");
+
+        var isQuality = status && STATUS_TO_QUALITY.hasOwnProperty(status);
+        if (isQuality) {
+            var issueKey = STATUS_TO_QUALITY[status];
+            return nonDeptScopedDevices().filter(function (d) {
+                return d.issues && d.issues[issueKey];
+            });
+        }
+
+        return scopedDevices().filter(function (d) {
+            if (status && d.status !== status) return false;
+            if (upgradeSel) {
+                if (upgradeSel === "RAM" && !d.upgrade.ram) return false;
+                if (upgradeSel === "SSD" && !d.upgrade.ssd) return false;
+                if (upgradeSel === "AMBOS" && !(d.upgrade.ram && d.upgrade.ssd)) return false;
+            }
+            return true;
+        });
+    }
+
+    function sortValueGeral(d, key) {
+        switch (key) {
+            case "nome": return (d.nome || "").toLowerCase();
+            case "equipamento": return (d.fabricante + " " + d.modelo).toLowerCase();
+            case "departamento": return (d.departamento || "").toLowerCase();
+            case "tipo": return (d.tipo || "").toLowerCase();
+            case "responsavel": return (d.responsavel || "").toLowerCase();
+            case "processador": return (d.processador || "").toLowerCase();
+            case "memoria": return parseRamGB(d.memoria) || 0;
+            case "status": return STATUS_META[d.status] ? STATUS_META[d.status].label : "";
+            default: return "";
+        }
+    }
+
+    function applySortGeral(list) {
+        if (!geralSort.key) return list;
+        var key = geralSort.key, dir = geralSort.dir;
+        return list.slice().sort(function (a, b) {
+            var va = sortValueGeral(a, key), vb = sortValueGeral(b, key);
+            if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+            return String(va).localeCompare(String(vb), "pt-BR") * dir;
+        });
+    }
+
+    function renderUpgradeCell(d) {
+        if (d.status !== "OK" || d.upgradeLabel === "NENHUM") {
+            return '<span class="tag-none">—</span>';
+        }
+        var tags = "";
+        if (d.upgrade.ram) tags += '<span class="badge tag-ram">RAM</span>';
+        if (d.upgrade.ssd) tags += '<span class="badge tag-ssd">SSD</span>';
+        return '<div class="upgrade-tags">' + tags + '</div>';
+    }
+
+    function renderQualityCell(d) {
+        if (!d.issues) return '<span class="tag-none">—</span>';
+        var keys = ["duplicado", "grupoVazio", "tipoIncomum", "semResponsavel"];
+        var tags = "";
+        keys.forEach(function (key) {
+            if (!d.issues[key]) return;
+            tags += '<span class="badge tag-quality" title="' + escapeHTML(qualityDetailText(d, key)) + '">' + escapeHTML(QUALITY_META[key].tag) + '</span>';
+        });
+        return tags ? '<div class="upgrade-tags">' + tags + '</div>' : '<span class="tag-none">—</span>';
+    }
+
+    function renderRowHTML(d, isChild) {
+        var meta = STATUS_META[d.status];
+        var inativo = d.statusGLPI && d.statusGLPI.toLowerCase() !== "ativo"
+            ? '<span class="pill-inativo">' + escapeHTML(d.statusGLPI) + '</span>' : "";
+        var dup = d.issues && d.issues.duplicado
+            ? '<span class="pill-dup" title="Existem ' + d._dupCount + ' ativos cadastrados com este mesmo nome no GLPI">duplicado</span>' : "";
+        var obs = d.comentarios ? escapeHTML(d.comentarios.replace(/\n/g, " | ")) : "—";
+        var statusCell = meta ? ("<span class=\"badge " + meta.badge + "\">" + meta.label + "</span>") : "—";
+        var nomeHTML = (isChild ? '<span class="subrow-marker">&#8618;</span>' : "") + escapeHTML(d.nome);
+
+        return (
+            "<tr" + (isChild ? " class=\"subrow\"" : "") + ">" +
+            "<td>" + escapeHTML(d.departamento) + (d.subgrupo ? '<div class="cell-secondary">' + escapeHTML(d.subgrupo) + "</div>" : "") + "</td>" +
+            "<td>" + escapeHTML(d.responsavel) + "</td>" +
+            "<td class=\"cell-secondary\">" + escapeHTML(d.tipo) + "</td>" +
+            "<td>" + escapeHTML(d.fabricante) + " " + escapeHTML(d.modelo) + "</td>" +
+            "<td><strong>" + nomeHTML + "</strong>" + inativo + dup + "</td>" +
+            "<td>" + escapeHTML(d.processador || "—") + "</td>" +
+            "<td>" + escapeHTML(d.memoria || "—") + "</td>" +
+            "<td>" + statusCell + "</td>" +
+            "<td>" + renderUpgradeCell(d) + "</td>" +
+            "<td class=\"col-quality\">" + renderQualityCell(d) + "</td>" +
+            "<td class=\"cell-obs\" title=\"" + obs + "\">" + obs + "</td>" +
+            "</tr>"
+        );
+    }
+
+    function respGroupKey(d) {
+        var key = (d.responsavel || "").trim().toLowerCase();
+        return (key && key !== "—") ? key : "";
+    }
+
+    function renderTable() {
+        var status = els.statusFilter.value || activeStatusFilter;
+        var isQuality = status && STATUS_TO_QUALITY.hasOwnProperty(status);
+        var filtered = applySortGeral(getFilteredDevices());
+
+        // Agrupamento: um Periférico (Monitor/Celular) que tenha o mesmo
+        // Responsável (já normalizado) de um Computer visível no recorte
+        // atual aparece como subitem logo abaixo dele, em vez de linha
+        // solta na lista — assim dá pra ver de imediato que, por exemplo,
+        // o notebook da Maria tem um monitor associado.
+        var periphByKey = {};
+        filtered.forEach(function (d) {
+            var key = respGroupKey(d);
+            if (d.category === "peripheral" && key) {
+                (periphByKey[key] = periphByKey[key] || []).push(d);
+            }
+        });
+
+        var usedKeys = {};
+        var childrenByParentUid = {};
+        filtered.forEach(function (d) {
+            if (d.category === "peripheral") return;
+            var key = respGroupKey(d);
+            if (key && periphByKey[key] && !usedKeys[key]) {
+                childrenByParentUid[d._uid] = periphByKey[key];
+                usedKeys[key] = true;
+            }
+        });
+
+        var topLevel = filtered.filter(function (d) {
+            if (d.category !== "peripheral") return true;
+            var key = respGroupKey(d);
+            return !(key && usedKeys[key]); // se true, vira subitem de um Computer
+        });
+
+        var html = "";
+        topLevel.forEach(function (d) {
+            html += renderRowHTML(d, false);
+            var children = childrenByParentUid[d._uid];
+            if (children) {
+                children.forEach(function (c) { html += renderRowHTML(c, true); });
+            }
+        });
+        els.tableBody.innerHTML = html;
+
+        els.emptyState.style.display = filtered.length === 0 ? "block" : "none";
+        var totalRef = isQuality ? nonDeptScopedDevices().length : scopedDevices().length;
+        els.resultsCount.innerHTML = "Exibindo <strong>" + filtered.length + "</strong> de <strong>" + totalRef + "</strong> dispositivos no recorte atual";
+    }
+
+    function updateCardActiveState() {
+        Array.prototype.forEach.call(els.summaryCards.children, function (card) {
+            var cardStatus = card.getAttribute("data-status");
+            var cardUpgrade = card.getAttribute("data-upgrade");
+            if (cardStatus !== null && cardStatus !== "") {
+                card.classList.toggle("active", cardStatus === activeStatusFilter);
+            } else if (cardUpgrade) {
+                card.classList.toggle("active", cardUpgrade === activeUpgradeCardFilter);
+            } else {
+                card.classList.remove("active");
+            }
+        });
+    }
+
+    function updateSortHeaders() {
+        Array.prototype.forEach.call(els.hardwareTable.querySelectorAll("th[data-sort]"), function (th) {
+            th.classList.remove("sorted-asc", "sorted-desc");
+            if (th.getAttribute("data-sort") === geralSort.key) {
+                th.classList.add(geralSort.dir === 1 ? "sorted-asc" : "sorted-desc");
+            }
+        });
+    }
+
+    function applyFilters() {
+        var scoped = scopedDevices();
+        updateTotalBanner(scoped);
+        updateCardsVisibility();
+        updateSummaryCards(scoped);
+        updateQualityCardCounts();
+        updateCardActiveState();
+        renderTable();
+        updateSortHeaders();
+    }
+
+    /* =========================================================
+       4. EVENTOS
+       ========================================================= */
+
+    els.searchInput.addEventListener("input", applyFilters);
+    els.typeFilter.addEventListener("change", applyFilters);
+    els.deptFilter.addEventListener("change", function () {
+        if (els.deptFilter.value !== "TI") {
+            if (activeStatusFilter === "SERVIDOR" || STATUS_TO_QUALITY.hasOwnProperty(activeStatusFilter)) {
+                activeStatusFilter = "";
+            }
+            if (STATUS_TO_QUALITY.hasOwnProperty(els.statusFilter.value)) {
+                els.statusFilter.value = "";
+            }
+        }
+        applyFilters();
+    });
+    els.showInactive.addEventListener("change", function () {
+        populateFilterOptions(inactiveFilteredDevices());
+        applyFilters();
+    });
+    els.statusFilter.addEventListener("change", function () {
+        activeStatusFilter = "";
+        applyFilters();
+    });
+    els.upgradeFilter.addEventListener("change", function () {
+        activeUpgradeCardFilter = "";
+        applyFilters();
+    });
+
+    els.clearFilters.addEventListener("click", function () {
+        els.searchInput.value = "";
+        if (sessaoIsTI) els.deptFilter.value = "";
+        els.typeFilter.value = "";
+        els.statusFilter.value = "";
+        els.upgradeFilter.value = "";
+        els.showInactive.checked = false;
+        activeStatusFilter = "";
+        activeUpgradeCardFilter = "";
+        populateFilterOptions(inactiveFilteredDevices());
+        applyFilters();
+    });
+
+    els.summaryCards.addEventListener("click", function (e) {
+        var card = e.target.closest(".card");
+        if (!card) return;
+        var status = card.getAttribute("data-status");
+        var upgrade = card.getAttribute("data-upgrade");
+        if (status !== null && status !== "") {
+            activeStatusFilter = (activeStatusFilter === status) ? "" : status;
+            activeUpgradeCardFilter = "";
+            els.statusFilter.value = "";
+            els.upgradeFilter.value = "";
+        } else if (upgrade) {
+            activeUpgradeCardFilter = (activeUpgradeCardFilter === upgrade) ? "" : upgrade;
+            activeStatusFilter = "";
+            els.statusFilter.value = "";
+            els.upgradeFilter.value = "";
+        }
+        applyFilters();
+    });
+
+    els.hardwareTable.querySelector("thead").addEventListener("click", function (e) {
+        var th = e.target.closest("th[data-sort]");
+        if (!th) return;
+        var key = th.getAttribute("data-sort");
+        geralSort.dir = (geralSort.key === key) ? geralSort.dir * -1 : 1;
+        geralSort.key = key;
+        applyFilters();
+    });
+
+    els.reloadBtn.addEventListener("click", function () { carregarDados(true); });
+    els.retryBtn.addEventListener("click", function () { carregarDados(false); });
+
+    /* =========================================================
+       5. CARREGAMENTO DE DADOS — via api_ativos.php
+       (substitui o antigo upload manual / auto-fetch de glpi.csv)
+       ========================================================= */
+
+    function mostrarEstado(titulo, subtitulo, erro) {
+        els.stateBox.style.display = "block";
+        els.stateBox.classList.toggle("is-error", !!erro);
+        els.stateTitle.textContent = titulo;
+        els.stateSubtitle.style.display = subtitulo ? "block" : "none";
+        els.stateSubtitle.textContent = subtitulo || "";
+        els.stateError.style.display = erro ? "block" : "none";
+        els.stateError.textContent = erro || "";
+        els.retryBtn.style.display = erro ? "inline-flex" : "none";
+        els.dashboard.style.display = "none";
+    }
+
+    function carregarDados(forcarAtualizacao) {
+        mostrarEstado("Carregando dados do GLPI...", "Isso pode levar alguns segundos.", "");
+        var url = API_ENDPOINT + (forcarAtualizacao ? "?nocache=1" : "");
+
+        fetch(url, { credentials: "same-origin", cache: "no-store" })
+            .then(function (resp) {
+                return resp.json().then(function (json) { return { ok: resp.ok, json: json }; });
+            })
+            .then(function (result) {
+                if (!result.ok || result.json.error) {
+                    throw new Error(result.json && result.json.error ? result.json.error : "Erro desconhecido ao consultar os dados.");
+                }
+                var payload = result.json;
+                sessaoIsTI = !!payload.meta.isTI;
+                sessaoDepartamento = payload.meta.departamento || "";
+
+                allDevices = (payload.registros || [])
+                    .map(mapRecordToDevice)
+                    .filter(function (d) { return d.nome; });
+                allDevices.forEach(function (d, idx) { d._uid = idx; });
+                computeQualityFlags(allDevices);
+
+                activeStatusFilter = "";
+                activeUpgradeCardFilter = "";
+                geralSort = { key: null, dir: 1 };
+                els.searchInput.value = "";
+                els.statusFilter.value = "";
+                els.upgradeFilter.value = "";
+                els.typeFilter.value = "";
+                els.showInactive.checked = false;
+
+                populateFilterOptions(inactiveFilteredDevices());
+                applyFilters();
+
+                els.sourceInfo.innerHTML =
+                    "<div>Fonte: <strong>glpi.empresa.example.com</strong></div>" +
+                    "<div>Equipamentos: <strong>" + allDevices.length + " ativos</strong> &middot; atualizado em <strong>" +
+                    escapeHTML(new Date(payload.meta.geradoEm).toLocaleString("pt-BR")) + "</strong></div>";
+                els.sourceInfo.style.display = "block";
+
+                els.stateBox.style.display = "none";
+                els.dashboard.style.display = "block";
+                els.reloadBtn.style.display = "inline-flex";
+            })
+            .catch(function (err) {
+                mostrarEstado("Não foi possível carregar os dados", "", err.message);
+            });
+    }
+
+    carregarDados(false);
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# --- Segredos e configuração real (NUNCA versionar) ---
+config.php
+painel/config.php
+*.env
+.env
+*.pem
+*.key
+*.pfx
+
+# --- Dados gerados em tempo de execução ---
+painel/cache/*
+!painel/cache/.gitkeep
+*.log
+
+# --- Instaladores binários (baixe do site oficial do GLPI Agent) ---
+*.msi
+*.exe
+
+# --- Arquivos de editor e de sistema ---
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
