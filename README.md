@@ -204,6 +204,4 @@ Os valores de `config.example.php` são apenas marcadores. Substitua tudo pelo s
 
 ## Licença
 
-[GNU GPL v3.0](LICENSE).
-
-Mantido por [@manueljpv](https://github.com/manueljpv).
+GPL-3.0. Veja o arquivo [LICENSE](LICENSE). Copyright (C) 2026 Manuel Pérez.
